@@ -1,0 +1,5 @@
+*.vcd
+*~
+.tramp_history
+
+__pycache__/
