@@ -17,6 +17,9 @@ class ScanTimings:
     def overscan(self):
         return self.prescan + self.front_porch
 
+    @property
+    def fullscan(self):
+        return self.overscan + self.visible
 
 class VgaResolution:
     def __init__(self, pixclk_freq, h_timings, v_timings):

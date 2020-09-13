@@ -2,4 +2,5 @@
 *~
 .tramp_history
 
+build/
 __pycache__/

@@ -3,9 +3,9 @@ from nmigen.sim.pysim import *
 
 from pixtolic.processor.alu import (
     PixelOperand,
+    PixelDestination,
     PixelOpcode,
     PixelALU,
-    OUTPUT_REGISTER,
     pixel_instruction_layout,
 )
 from pixtolic.config.resolutions import resolutions, ResolutionName
@@ -25,7 +25,7 @@ def alu_instruction_tb(alu,
 
 def alu_tb(alu):
     yield alu.instruction.left_op.eq(PixelOperand.XPOS)
-    yield alu.instruction.dest.eq(OUTPUT_REGISTER)
+    yield alu.instruction.dest.eq(PixelDestination.OUTPUT)
     yield alu.instruction.opcode.eq(PixelOpcode.NOT)
     yield from alu_instruction_tb(
         alu,
@@ -33,9 +33,21 @@ def alu_tb(alu):
         y_pos=0,
         frame=0,
         expected_result=0xFFFFFD5A,
-        expected_output=0xFDA,
+        expected_output=0xD5A,
     )
 
+    yield alu.instruction.left_op.eq(PixelOperand.XPOS)
+    yield alu.instruction.right_op.eq(PixelOperand.YPOS)
+    yield alu.instruction.dest.eq(PixelDestination.OUTPUT)
+    yield alu.instruction.opcode.eq(PixelOpcode.SUB)
+    yield from alu_instruction_tb(
+        alu,
+        x_pos=0x123,
+        y_pos=0x345,
+        frame=0,
+        expected_result=0xFFFFFFDE,
+        expected_output=0xFDE,
+    )
 
 if __name__ == '__main__':
     dut = PixelALU(
@@ -48,5 +60,5 @@ if __name__ == '__main__':
         yield from alu_tb(dut)
     sim.add_clock(1e-6, domain='pixel')
     sim.add_sync_process(proc, domain='pixel')
-    with sim.write_vcd('alu.vd'):
+    with sim.write_vcd('alu.vcd'):
         sim.run()

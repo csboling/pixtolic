@@ -5,29 +5,37 @@ from nmigen import *
 
 
 class PixelOperand(Enum):
-    XPOS   = 0
-    YPOS   = 1
-    FRAME  = 2
-    GP0    = 3
-    GP1    = 4
-    GP2    = 5
-    GP3    = 6
+    GP0    = 0
+    GP1    = 1
+    GP2    = 2
+    GP3    = 3
+    XPOS   = 4
+    YPOS   = 5
+    FRAME  = 6
     IMM    = 7
 
+class PixelDestination(Enum):
+    GP0    = 0
+    GP1    = 1
+    GP2    = 2
+    GP3    = 3
+    OUTPUT = 7
+    
 class PixelOpcode(Enum):
     NOT = 0
     AND = 1
     OR  = 2
     XOR = 3
+    ADD = 4
+    SUB = 5
 
-REGISTER_COUNT = 7
-OUTPUT_REGISTER = REGISTER_COUNT + 1
+REGISTER_COUNT = 4
 REGISTER_WIDTH = 32
 
 pixel_instruction_layout = [
     ('left_op', len(PixelOperand.__members__).bit_length()),
     ('right_op', len(PixelOperand.__members__).bit_length()),
-    ('dest', (REGISTER_COUNT + 1).bit_length()),
+    ('dest', len(PixelDestination.__members__).bit_length()),
     ('opcode', len(PixelOpcode.__members__).bit_length()),
     ('immediate', REGISTER_WIDTH),
 ]
@@ -65,9 +73,13 @@ class PixelALU(Elaboratable):
                 m.d.comb += self.result.eq(self.left | self.right)
             with m.Case(PixelOpcode.XOR):
                 m.d.comb += self.result.eq(self.left ^ self.right)
+            with m.Case(PixelOpcode.ADD):
+                m.d.comb += self.result.eq(self.left + self.right)
+            with m.Case(PixelOpcode.SUB):
+                m.d.comb += self.result.eq(self.left - self.right)
 
-        with m.If(self.instruction.dest == OUTPUT_REGISTER):
-            m.d.pixel += self.output.eq(Cat(self.slice_pixels(self.result)))
+        with m.If(self.instruction.dest == PixelDestination.OUTPUT):
+            m.d.pixel += self.output.eq(self.result)
         with m.Else():
             self.registers[self.instruction.dest].eq(self.result)
 
@@ -83,8 +95,12 @@ class PixelALU(Elaboratable):
                 m.d.comb += data.eq(self.y_pos)
             with m.Case(PixelOperand.FRAME):
                 m.d.comb += data.eq(self.frame)
+            with m.Case(PixelOperand.IMM):
+                m.d.comb += data.eq(self.instruction.immediate)
+            with m.Default():
+                m.d.comb += data.eq(self.registers[sel & 0x3])
 
     def slice_pixels(self, reg):
         yield reg[0:4]
+        yield reg[4:8]
         yield reg[8:12]
-        yield reg[16:20]
