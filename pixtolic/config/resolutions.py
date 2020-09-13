@@ -33,10 +33,11 @@ class VgaResolution:
 class ResolutionName(Enum):
     VGA_640_480p_60hz    = 0
     SVGA_800_600p_60hz   = 1
-    XGA_1024_768p_60hz   = 2
-    VESA_1280_960p_60hz  = 3
-    VESA_1280_1024p_60hz = 4
-    VESA_1600_1200p_60hz = 5
+    SVGA_800_600p_56hz   = 2
+    XGA_1024_768p_60hz   = 3
+    VESA_1280_960p_60hz  = 4
+    VESA_1280_1024p_60hz = 5
+    VESA_1600_1200p_60hz = 6
 
 
 # thanks http://www.tinyvga.com !
@@ -88,6 +89,21 @@ resolutions = {
         # divr       : 0
         # divf       : 52
     ),
+    ResolutionName.SVGA_800_600p_56hz: VgaResolution(
+        pixclk_freq=36e6,
+        h_timings=ScanTimings(
+            sync_pulse=72,
+            back_porch=128,
+            visible=800,
+            front_porch=24,
+        ),
+        v_timings=ScanTimings(
+            sync_pulse=2,
+            back_porch=22,
+            visible=600,
+            front_porch=1,
+        ),
+    ),
 
     ResolutionName.XGA_1024_768p_60hz: VgaResolution(
         pixclk_freq=65e6,
@@ -111,7 +127,7 @@ resolutions = {
         # vco        : 1032.00MHz
         # divr       : 0
         # divf       : 85
-        
+
     ),
 
     ResolutionName.VESA_1280_960p_60hz: VgaResolution(
@@ -162,7 +178,7 @@ resolutions = {
         # divr       : 0
         # divf       : 71
     ),
-    
+
     ResolutionName.VESA_1600_1200p_60hz: VgaResolution(
         pixclk_freq=162e6,
         h_timings=ScanTimings(

@@ -19,13 +19,16 @@ class PixtolicTop(Elaboratable):
 
         pads = platform.request('vga')
 
-        m.submodules.vga_timing = vga_timing = VgaTiming(resolutions[ResolutionName.SVGA_800_600p_60hz])
+        # this resolution uses a 36 MHz pixel clock, which the PLL can
+        # match exactly
+        res = ResolutionName.SVGA_800_600p_56hz
+        m.submodules.vga_timing = vga_timing = VgaTiming(resolutions[res])
         m.submodules.test_pattern = TestPattern(pads, vga_timing, color_depth=self.color_depth)
 
         m.submodules.pll = pll = iCE40PLL(12e6 / 1e6, vga_timing.res.pixclk_freq / 1e6, 'pixel')
         clk12 = platform.request('clk12', dir='-')
         m.d.comb += pll.clk_pin.eq(clk12)
-        # # platform.add_period_constraint(m.d.pixel.clk, 1e9 / vga_timing.res.pixclk_freq)
+        platform.add_clock_constraint(pll.clk_pin, vga_timing.res.pixclk_freq)
 
         
         m.d.comb += [

@@ -28,33 +28,31 @@ class TestPattern(Elaboratable):
             self.pads.red.eq(red),
             self.pads.green.eq(green),
             self.pads.blue.eq(blue),
-            # self.pads.red.eq(self.timing.line_counter),
-            # self.pads.green.eq(self.timing.line_counter),
-            # self.pads.blue.eq(self.timing.line_counter),
         ]
 
         with m.If(self.timing.active == 0):
             m.d.pixel += [
-                cell_col_count.eq(cells_across-1),
+                cell_col_count.eq(0),
                 pix_count.eq(0),
                 red.eq(0),
                 green.eq(0),
                 blue.eq(0),
             ]
         with m.Else():
-            with m.If(pix_count == cell_width-1):
-                m.d.pixel += [
-                    pix_count.eq(0),
-                    cell_col_count.eq(cell_col_count - 1),
-                ]
+            with m.If(pix_count == cell_width - 1):
+                m.d.pixel += pix_count.eq(0)
+                with m.If(cell_col_count == cells_across - 1):
+                    m.d.pixel += cell_col_count.eq(0)
+                with m.Else():
+                    m.d.pixel += cell_col_count.eq(cell_col_count + 1)
             with m.Else():
                 m.d.pixel += pix_count.eq(pix_count + 1)
 
             with m.If(self.timing.scan_counter == self.timing.res.h.prescan):
                 m.d.pixel += line_count.eq(line_count + 1)
-                with m.If(line_count == cell_height):
+                with m.If(line_count == cell_height - 1):
                     m.d.pixel += line_count.eq(0)
-                    with m.If(cell_row_count == cells_down-1):
+                    with m.If(cell_row_count == cells_down - 1):
                         m.d.pixel += cell_row_count.eq(0)
                     with m.Else():
                         m.d.pixel += cell_row_count.eq(cell_row_count + 1)
@@ -73,6 +71,9 @@ class TestPattern(Elaboratable):
     def assign_color(self, row, cell_col_count, colors):
         bits = format(row, '03b')
         return [
+            # colors[0].eq(0x0),
+            # colors[1].eq(0xF),
+            # colors[2].eq(0x0),
             color.eq(cell_col_count if bits[i] == '1' else 0)
             for i, color in enumerate(colors)
         ]

@@ -3,7 +3,7 @@ from nmigen.sim.pysim import *
 
 from pixtolic.config.resolutions import resolutions, ResolutionName
 from pixtolic.output.timing import VgaTiming
-from pixtolic.output.testpattern import TestPattern
+from pixtolic.patterns import TestPattern
 from pixtolic.output.vga import vga_layout
 
 
@@ -21,13 +21,13 @@ class Testbench(Elaboratable):
         return m
 
 def vga_lines(dut):
-    for _ in range(800 * 128):
+    for _ in range(800 * 600):
         yield
 
 if __name__ == '__main__':
     vga = Record(vga_layout(4))
     timing = VgaTiming(resolutions[ResolutionName.VGA_640_480p_60hz])
-    dut = Testbench(timing, TestPattern(4, vga, timing))
+    dut = Testbench(timing, TestPattern(vga, timing, 4))
     sim = Simulator(dut)
     def proc():
         yield from vga_lines(dut)
