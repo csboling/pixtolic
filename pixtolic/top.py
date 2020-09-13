@@ -6,6 +6,7 @@ from pixtolic.device.iCE40 import iCE40PLL
 from pixtolic.device.icebreaker import vga_pmod
 from pixtolic.output.timing import VgaTiming
 from pixtolic.patterns import TestPattern
+from pixtolic.ui.uart import UARTLoopback
 
 
 class PixtolicTop(Elaboratable):
@@ -15,25 +16,45 @@ class PixtolicTop(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        m.domains.pixel = ClockDomain()
-
-        pads = platform.request('vga')
+        clk12 = platform.request('clk12', dir='-')
+        vga_pads = platform.request('vga')
+        uart_pads = platform.request('uart')
+        leds = Cat([
+            platform.request('led_r'),
+            platform.request('led_g'),
+        ])
 
         # this resolution uses a 36 MHz pixel clock, which the PLL can
         # match exactly
-        res = ResolutionName.SVGA_800_600p_56hz
-        m.submodules.vga_timing = vga_timing = VgaTiming(resolutions[res])
-        m.submodules.test_pattern = TestPattern(pads, vga_timing, color_depth=self.color_depth)
+        res = resolutions[ResolutionName.SVGA_800_600p_56hz]
 
-        m.submodules.pll = pll = iCE40PLL(12e6 / 1e6, vga_timing.res.pixclk_freq / 1e6, 'pixel')
-        clk12 = platform.request('clk12', dir='-')
-        m.d.comb += pll.clk_pin.eq(clk12)
-        platform.add_clock_constraint(pll.clk_pin, vga_timing.res.pixclk_freq)
-
-        
+        m.domains.pixel = ClockDomain()
+        m.domains.sync = sync = ClockDomain()
+        m.submodules.pll = pll = iCE40PLL(
+            freq_in_mhz=12,
+            freq_out_mhz=res.pixclk_freq / 1e6,
+            domain_name='pixel',
+        )
         m.d.comb += [
-            pads.hsync.eq(vga_timing.hsync),
-            pads.vsync.eq(vga_timing.vsync),
+            pll.clk_pin.eq(clk12),
+            sync.clk.eq(pll.buf_clkin),
+        ]
+        platform.add_clock_constraint(pll.clk_pin, res.pixclk_freq)
+
+        m.submodules.vga_timing = vga_timing = VgaTiming(res)
+        m.submodules.test_pattern = TestPattern(vga_pads, vga_timing, color_depth=self.color_depth)
+        m.d.comb += [
+            vga_pads.hsync.eq(vga_timing.hsync),
+            vga_pads.vsync.eq(vga_timing.vsync),
+        ]
+
+        m.submodules.uart = uart = UARTLoopback(
+            uart_pads,
+            clk_freq=12e6,
+            baud_rate=115200,
+        )
+        m.d.comb += [
+            leds.eq(uart.rx_data[0:2]),
         ]
 
         return m

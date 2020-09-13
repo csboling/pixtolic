@@ -1,3 +1,6 @@
+# https://github.com/kbob/nmigen-examples
+# GPL v3
+
 from nmigen import *
 
 from collections import namedtuple
@@ -10,20 +13,21 @@ from nmigen.cli import main
 
 class iCE40PLL(Elaboratable):
 
-    """
-    Instantiate the iCE40's phase-locked loop (PLL).
-    This uses the iCE40's SB_PLL40_PAD primitive in simple feedback
+    """Instantiate the iCE40's phase-locked loop (PLL).
+    This uses the iCE40's SB_PLL40_2_PAD primitive in simple feedback
     mode.
     The reference clock is directly connected to a package pin. To
     allocate that pin, request the pin with dir='-'; otherwise nMigen
     inserts an SB_IO on the pin.  E.g.,
         clk_pin = platform.request('clk12', dir='-')
-    Because the PLL eats the external clock, that clock is not available
-    for other uses.  So you might as well have the PLL generate the
-    default 'sync' clock domain.
+
+    The buf_clkin signal is a buffered copy of the input clock that
+    the PLL outputs.
+
     This module also has a reset synchronizer -- the domain's reset line
     is not released until a few clocks after the PLL lock signal is
     good.
+
     """
 
     def __init__(self, freq_in_mhz, freq_out_mhz, domain_name='sync'):
@@ -31,10 +35,12 @@ class iCE40PLL(Elaboratable):
         self.freq_out = freq_out_mhz
         self.coeff = self._calc_freq_coefficients()
         self.clk_pin = Signal()
+        self.buf_clkin = Signal()
         self.domain_name = domain_name
         self.domain = ClockDomain(domain_name)
         self.ports = [
             self.clk_pin,
+            self.buf_clkin,
             self.domain.clk,
             self.domain.rst,
         ]
@@ -69,7 +75,8 @@ class iCE40PLL(Elaboratable):
         # coeff = self._calc_freq_coefficients()
 
         pll_lock = Signal()
-        pll = Instance("SB_PLL40_PAD",
+        pll = Instance(
+            "SB_PLL40_2_PAD",
             p_FEEDBACK_PATH='SIMPLE',
             p_DIVR=self.coeff.divr,
             p_DIVF=self.coeff.divf,
@@ -80,8 +87,10 @@ class iCE40PLL(Elaboratable):
             i_RESETB=Const(1),
             i_BYPASS=Const(0),
 
-            o_PLLOUTGLOBAL=ClockSignal(self.domain_name),
-            o_LOCK=pll_lock)
+            o_PLLOUTGLOBALA=self.buf_clkin,
+            o_PLLOUTGLOBALB=ClockSignal(self.domain_name),
+            o_LOCK=pll_lock,
+        )
         rs = ResetSynchronizer(~pll_lock, domain=self.domain_name)
 
         m = Module()
