@@ -2,10 +2,12 @@ from nmigen import *
 
 
 class TestPattern(Elaboratable):
-    def __init__(self, pads, timing, color_depth):
-        self.pads = pads
-        self.timing = timing
+    def __init__(self, timing, color_depth):
         self.color_depth = color_depth
+        self.timing = timing
+        self.red = Signal(self.color_depth)
+        self.green = Signal(self.color_depth)
+        self.blue = Signal(self.color_depth)
 
     def elaborate(self, platform):
         m = Module()
@@ -15,28 +17,19 @@ class TestPattern(Elaboratable):
         cell_width = round(self.timing.res.width / cells_across)
         cell_height = round(self.timing.res.height / cells_down)
 
-        red = Signal(self.color_depth)
-        green = Signal(self.color_depth)
-        blue = Signal(self.color_depth)
         pix_count = Signal(range(cell_width))
         line_count = Signal(range(cell_height))
 
         cell_col_count = Signal(range(cells_across))
         cell_row_count = Signal(range(cells_down))
 
-        m.d.comb += [
-            self.pads.red.eq(red),
-            self.pads.green.eq(green),
-            self.pads.blue.eq(blue),
-        ]
-
         with m.If(self.timing.active == 0):
             m.d.pixel += [
                 cell_col_count.eq(0),
                 pix_count.eq(0),
-                red.eq(0),
-                green.eq(0),
-                blue.eq(0),
+                self.red.eq(0),
+                self.green.eq(0),
+                self.blue.eq(0),
             ]
         with m.Else():
             with m.If(pix_count == cell_width - 1):
@@ -63,7 +56,7 @@ class TestPattern(Elaboratable):
                         m.d.pixel += self.assign_color(
                             k,
                             cell_col_count,
-                            (red, green, blue),
+                            (self.red, self.green, self.blue),
                         )
 
         return m

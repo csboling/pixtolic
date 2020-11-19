@@ -16,6 +16,7 @@ class VgaTiming(Elaboratable):
         self.x_pos = Signal(range(self.res.width))
         self.y_pos = Signal(range(self.res.height))
         self.new_frame = Signal()
+        self.new_line = Signal()
 
     def elaborate(self, platform):
         m = Module()
@@ -25,17 +26,14 @@ class VgaTiming(Elaboratable):
             with m.If(self.line_counter == self.res.height + self.res.v.overscan - 1):
                 m.d.pixel += [
                     self.line_counter.eq(0),
-                    self.new_frame.eq(1),
                 ]
             with m.Else():
                 m.d.pixel += [
                     self.line_counter.eq(self.line_counter + 1),
-                    self.new_frame.eq(0),
                 ]
         with m.Else():
             m.d.pixel += [
                 self.scan_counter.eq(self.scan_counter + 1),
-                self.new_frame.eq(0),
             ]
 
         m.d.comb += [
@@ -48,6 +46,8 @@ class VgaTiming(Elaboratable):
                     self.scan_counter < self.res.h.prescan + self.res.width,
                 ]
             )),
+            self.new_line.eq((self.line_counter >= self.res.v.prescan) & (self.scan_counter == self.res.h.prescan - 1)),
+            self.new_frame.eq((self.line_counter == self.res.v.prescan) & (self.scan_counter == self.res.h.prescan - 1)), # (self.scan_counter == 0) & (self.line_counter == 0)),
             self.hsync.eq(~(self.scan_counter < self.res.h.sync_pulse)),
             self.vsync.eq(~(self.line_counter < self.res.v.sync_pulse)),
         ]
