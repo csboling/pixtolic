@@ -8,7 +8,6 @@ from pixtolic.config.resolutions import ResolutionName, resolutions
 from pixtolic.device.iCE40 import iCE40PLL
 from pixtolic.device.icebreaker import vga_pmod
 from pixtolic.output.timing import VgaTiming
-from pixtolic.host.testvec import gradient
 from pixtolic.patterns import TestPattern
 from pixtolic.processor.still import Still
 from pixtolic.ui.uart import UARTLoopback
@@ -54,8 +53,7 @@ class PixtolicTop(Elaboratable):
             path.dirname(__file__),
             '../resources/RGB_12bits_parrot.png',
         )
-        image = Image.open(fname)
-        # image = gradient(color_depth=4)
+        image = Image.open(fname).resize((100, 75))
         m.submodules.still = still = Still(
             timing=vga_timing,
             color_depth=self.color_depth,
@@ -66,6 +64,7 @@ class PixtolicTop(Elaboratable):
             vga_pads.hsync.eq(vga_timing.hsync),
             vga_pads.vsync.eq(vga_timing.vsync),
         ]
+
         with m.If(button):
             m.d.comb += [
                 vga_pads.red.eq(still.red),

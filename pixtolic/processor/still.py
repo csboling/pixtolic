@@ -15,7 +15,8 @@ class Still(Elaboratable):
         self.timing = timing
         self.color_depth = color_depth
 
-        arr = np.array(image) // 16
+        # needs uint32 to accomodate shifts
+        arr = np.array(image, dtype='uint32') // 16
         self.init = self.to_rgb12(arr)
         self.width = image.width
         self.height = image.height
@@ -29,14 +30,18 @@ class Still(Elaboratable):
 
         self.x = Signal(range(self.width))
         self.y = Signal(range(self.height))
-        self.red = Signal(4)
-        self.green = Signal(4)
-        self.blue = Signal(4)
+        self.red = Signal(self.color_depth)
+        self.green = Signal(self.color_depth)
+        self.blue = Signal(self.color_depth)
         self.addr = Signal(range(self.pixcount))
 
     def to_rgb12(self, arr):
-        luma = arr.sum(axis=2) // 3
-        return luma.flatten().tolist()
+        rgb12 = (
+              arr[:,:,0] << (self.color_depth * 2)
+            | arr[:,:,1] << (self.color_depth * 1)
+            | arr[:,:,2] << (self.color_depth * 0)
+        )
+        return rgb12.flatten().tolist()
 
     def elaborate(self, platform):
         m = Module()
@@ -50,9 +55,9 @@ class Still(Elaboratable):
 
         with m.If(self.timing.active):
             m.d.comb += [
-                self.red.eq(rd_port.data),
-                self.green.eq(rd_port.data),
-                self.blue.eq(rd_port.data),
+                self.red.eq(rd_port.data[8:12]),
+                self.green.eq(rd_port.data[4:8]),
+                self.blue.eq(rd_port.data[0:4]),
             ]
         with m.Else():
             m.d.comb += [
