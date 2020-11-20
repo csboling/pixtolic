@@ -1,10 +1,14 @@
+from os import path
+
 from nmigen import *
 from nmigen_boards.icebreaker import ICEBreakerPlatform
+from PIL import Image
 
 from pixtolic.config.resolutions import ResolutionName, resolutions
 from pixtolic.device.iCE40 import iCE40PLL
 from pixtolic.device.icebreaker import vga_pmod
 from pixtolic.output.timing import VgaTiming
+from pixtolic.host.testvec import gradient
 from pixtolic.patterns import TestPattern
 from pixtolic.processor.still import Still
 from pixtolic.ui.uart import UARTLoopback
@@ -45,7 +49,18 @@ class PixtolicTop(Elaboratable):
 
         m.submodules.vga_timing = vga_timing = VgaTiming(res)
         m.submodules.test_pattern = test_pattern = TestPattern(vga_timing, color_depth=self.color_depth)
-        m.submodules.still = still = Still(vga_timing, pixel_depth=self.color_depth * 3)
+
+        fname = path.join(
+            path.dirname(__file__),
+            '../resources/RGB_12bits_parrot.png',
+        )
+        image = Image.open(fname)
+        # image = gradient(color_depth=4)
+        m.submodules.still = still = Still(
+            timing=vga_timing,
+            color_depth=self.color_depth,
+            image=image,
+        )
 
         m.d.comb += [
             vga_pads.hsync.eq(vga_timing.hsync),

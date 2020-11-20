@@ -47,7 +47,7 @@ class VgaTiming(Elaboratable):
                 ]
             )),
             self.new_line.eq((self.line_counter >= self.res.v.prescan) & (self.scan_counter == self.res.h.prescan - 1)),
-            self.new_frame.eq((self.line_counter == self.res.v.prescan) & (self.scan_counter == self.res.h.prescan - 1)), # (self.scan_counter == 0) & (self.line_counter == 0)),
+            self.new_frame.eq((self.line_counter == self.res.v.prescan) & (self.scan_counter == self.res.h.prescan - 1)),
             self.hsync.eq(~(self.scan_counter < self.res.h.sync_pulse)),
             self.vsync.eq(~(self.line_counter < self.res.v.sync_pulse)),
         ]
