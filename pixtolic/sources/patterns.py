@@ -64,9 +64,6 @@ class TestPattern(Elaboratable):
     def assign_color(self, row, cell_col_count, colors):
         bits = format(row, '03b')
         return [
-            # colors[0].eq(0x0),
-            # colors[1].eq(0xF),
-            # colors[2].eq(0x0),
             color.eq(cell_col_count if bits[i] == '1' else 0)
             for i, color in enumerate(colors)
         ]

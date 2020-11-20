@@ -28,6 +28,11 @@ class PixelOpcode(Enum):
     XOR = 3
     ADD = 4
     SUB = 5
+    EQ  = 6
+    GT  = 7
+    GTE = 8
+    LT  = 9
+    LTE = 10
 
 REGISTER_COUNT = 4
 REGISTER_WIDTH = 32
@@ -42,13 +47,14 @@ pixel_instruction_layout = [
 
 
 class PixelALU(Elaboratable):
-    def __init__(self, pixel_depth, resolution, frame_limit):
+
+    def __init__(self, pixel_depth):
         self.pixel_depth = pixel_depth
 
-        self.instruction = Record(pixel_instruction_layout)
-        self.x_pos = Signal((resolution.width).bit_length())
-        self.y_pos = Signal((resolution.height).bit_length())
-        self.frame = Signal((frame_limit).bit_length())
+        self.instruction = Record(pixel_Binstruction_layout)
+        self.x_pos = Signal(32)
+        self.y_pos = Signal(32)
+        self.frame = Signal(32)
 
         self.left = Signal(REGISTER_WIDTH)
         self.right = Signal(REGISTER_WIDTH)
@@ -77,11 +83,21 @@ class PixelALU(Elaboratable):
                 m.d.comb += self.result.eq(self.left + self.right)
             with m.Case(PixelOpcode.SUB):
                 m.d.comb += self.result.eq(self.left - self.right)
+            with m.Case(PixelOpcode.EQ):
+                m.d.comb += self.result.eq(self.left == self.right)
+            with m.Case(PixelOpcode.GT):
+                m.d.comb += self.result.eq(self.left > self.right)
+            with m.Case(PixelOpcode.GTE):
+                m.d.comb += self.result.eq(self.left >= self.right)
+            with m.Case(PixelOpcode.LT):
+                m.d.comb += self.result.eq(self.left < self.right)
+            with m.Case(PixelOpcode.LTE):
+                m.d.comb += self.result.eq(self.left <= self.right)
 
         with m.If(self.instruction.dest == PixelDestination.OUTPUT):
             m.d.pixel += self.output.eq(self.result)
         with m.Else():
-            self.registers[self.instruction.dest].eq(self.result)
+            m.d.pixel += self.registers[self.instruction.dest].eq(self.result)
 
         return m
 

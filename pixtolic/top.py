@@ -5,12 +5,13 @@ from nmigen_boards.icebreaker import ICEBreakerPlatform
 from PIL import Image
 
 from pixtolic.config.resolutions import ResolutionName, resolutions
+from pixtolic.output.timing import VgaTiming
+from pixtolic.sources.patterns import TestPattern
+from pixtolic.sources.still import Still
+from pixtolic.ui.uart import UARTLoopback
+
 from pixtolic.device.iCE40 import iCE40PLL
 from pixtolic.device.icebreaker import vga_pmod
-from pixtolic.output.timing import VgaTiming
-from pixtolic.patterns import TestPattern
-from pixtolic.processor.still import Still
-from pixtolic.ui.uart import UARTLoopback
 
 
 class PixtolicTop(Elaboratable):
@@ -94,6 +95,5 @@ if __name__ == '__main__':
     top = PixtolicTop(color_depth=4)
     platform = ICEBreakerPlatform()
     platform.add_resources(vga_pmod)
-    platform.add_resources(platform.break_off_pmod)
     products = platform.build(top, do_build=True, do_program=False)
     platform.toolchain_program(products, 'top')

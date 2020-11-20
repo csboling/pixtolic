@@ -1,5 +1,4 @@
 # https://github.com/kbob/nmigen-examples
-# GPL v3
 
 from nmigen import *
 

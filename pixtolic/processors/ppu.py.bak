@@ -1,0 +1,144 @@
+
+class PixelProcessingUnit(Elaboratable):
+    PROGRAM_LEN = 8
+
+    def __init__(self, resolution, pixel_depth, stride, instruction_depth, program_mem):
+        self.resolution = resolution
+        self.pixel_depth = pixel_depth
+        self.stride = stride
+        self.instruction_depth = instruction_depth
+        self.program_mem = program_mem
+
+        # inputs
+        self.new_frame = Signal()
+        self.new_batch = Signal()
+
+        self.mem_rd = self.program_mem.read_port(domain='pixel')
+        self.pc = Signal(self.mem_rd.addr.width, reset=self.instruction_depth-1)
+        self.instruction = Record(pixel_instruction_layout)
+        self.output_reg = Signal(self.pixel_depth)
+        self.active = Signal()
+
+        self.frame_counter = Signal(32)
+        self.y_pos = Signal(range(self.resolution.height))
+        self.x_pos = Array([
+            Signal(range(self.resolution.width))
+            for lane in range(self.stride)
+        ])
+        self.new_line = Signal()
+        self.ready = Signal()
+        self.result = Signal(self.stride * self.pixel_depth)
+
+    def elaborate(self, platform):
+        m = Module()
+
+        m.submodules.mem_rd = self.mem_rd
+        m.d.comb += [
+            self.mem_rd.addr.eq(self.pc),
+            self.instruction.eq(self.mem_rd.data),
+            self.new_line.eq(self.x_pos[0] == self.resolution.width - self.stride),
+            self.ready.eq(self.pc == self.instruction_depth - 1)
+        ]
+
+        for lane in range(self.stride):
+            with m.If(self.new_frame | (self.new_line & self.new_batch)):
+                m.d.pixel += self.x_pos[lane].eq(lane)
+            with m.Elif(self.new_batch):
+                m.d.pixel += self.x_pos[lane].eq(self.x_pos[lane] + self.stride)
+
+            alu = PixelALU(
+                instruction=self.instruction,
+                x_pos=self.x_pos[lane],
+                y_pos=self.y_pos,
+                frame=self.frame_counter,
+                pixel_depth=self.pixel_depth,
+            )
+            m.submodules += alu
+            m.d.comb += self.result[lane * self.pixel_depth : (lane + 1) * self.pixel_depth].eq(alu.result)
+
+        with m.If(self.new_frame | self.new_batch):
+            m.d.pixel += self.pc.eq(0)
+        with m.Elif(~self.ready):
+            m.d.pixel += self.pc.eq(self.pc + 1)
+
+        with m.If(self.new_frame):
+            m.d.pixel += [
+                self.y_pos.eq(0),
+                self.frame_counter.eq(self.frame_counter + 1),
+            ]
+        with m.Elif(self.new_line & self.new_batch):
+            m.d.pixel += self.y_pos.eq(self.y_pos + 1)
+
+        return m
+
+
+# class Sram(Elaboratable):
+#     def __init__(self, width, depth):
+#         self.wr_addr = Signal(range(depth))
+#         self.rd_addr = Signal.like(self.wr_addr)
+#         self.wr_data = Signal(width)
+#         self.wr_en = Signal()
+#         self.data = Array(Signal.like(self.wr_data) for _ in range(depth))
+
+#     def elaborate(self, platform):
+#         m = Module()
+
+#         with m.If(self.wr_en):
+#             m.d.pixel += self.data[self.wr_addr].eq(self.wr_data)
+
+#         with m.If(self.wr_addr == self.rd_addr & self.wr_en):
+#             m.d.pixel += self.rd_data.eq(self.wr_data)
+#         with m.Else():
+#             m.d.pixel += self.rd_data.eq(self.data[self.rd_addr])
+
+#         return m
+            
+class PixelFifo(Elaboratable):
+
+    def __init__(self, width, depth):
+        self.depth = depth
+        self.count = Signal(range(self.depth), reset=self.depth-1)
+        self.empty = Signal()
+        self.almost_empty = Signal()
+        self.dequeue = Signal()
+
+    def elaborate(self, platform):
+        m = Module()
+
+        with m.If(self.dequeue & self.count > 0):
+            m.d.pixel += self.count.eq(self.count - 1)
+
+        m.d.comb += [
+            self.empty.eq(self.count == self.depth-1),
+            self.almost_empty.eq(self.count == self.depth-2),
+        ]
+
+        return m
+
+class TestBench(Elaboratable):
+
+    def __init__(self, ppu, fifo, timing):
+        self.ppu = ppu
+        self.fifo = fifo
+        self.timing = timing
+
+    def elaborate(self, platform):
+        m = Module()
+        
+        m.submodules += [
+            self.ppu,
+            self.fifo,
+            self.timing,
+        ]
+        m.d.comb += [
+            self.ppu.new_frame.eq(self.timing.new_frame),
+            self.fifo.dequeue.eq(self.timing.active),
+            self.ppu.active.eq(self.timing.active),
+            self.ppu.new_batch.eq(
+                self.timing.active &
+                self.ppu.ready & 
+                (self.fifo.empty | self.fifo.almost_empty)
+            ),
+        ]
+
+        return m
